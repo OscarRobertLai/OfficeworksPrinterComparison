@@ -3,6 +3,8 @@ import { Line } from 'react-chartjs-2';
 import 'chart.js/auto';
 import {useState} from "react";
 
+
+
 const PrinterSearch = () => {
     const [printer1Sku, setPrinter1Sku] = useState("");
     const [printer2Sku, setPrinter2Sku] = useState("");
@@ -17,9 +19,9 @@ const PrinterSearch = () => {
 
 
         Promise.all([
-            fetch(`/catalogue-app/api/mobile-plan/product?productSku=BRMFCL3750`)
+            fetch('/catalogue-app/api/mobile-plan/product?productSku=BRMFCL3750')
                 .then(response => response.ok ? response.json() : Promise.reject(`Error: ${response.status}`)),
-            fetch(`/catalogue-app/api/mobile-plan/product?productSku=BRMFCL3750`)
+            fetch('/catalogue-app/api/mobile-plan/product?productSku=BRMFCL3750')
                 .then(response => response.ok ? response.json() : Promise.reject(`Error: ${response.status}`))
         ]).then(([data1, data2]) => {
             setApiResponse({ printer1: data1, printer2: data2 });
@@ -135,5 +137,4 @@ export default function App() {
         </div>
     );
 }
-
 
