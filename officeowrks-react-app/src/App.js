@@ -25,6 +25,9 @@ const PrinterSearch = () => {
                 .then(response => response.ok ? response.json() : Promise.reject(`Error: ${response.status}`))
         ]).then(([data1, data2]) => {
             setApiResponse({ printer1: data1, printer2: data2 });
+
+            // Add this line to log the response to console
+            console.log("API Response:", { printer1: data1, printer2: data2 });
         }).catch(error => {
             console.error('There was an error fetching printer data:', error);
         });
@@ -53,11 +56,6 @@ const PrinterSearch = () => {
             <div>
                 <button type="submit">Compare</button>
             </div>
-            {apiResponse && (
-                <div>
-                    <pre>{JSON.stringify(apiResponse, null, 2)}</pre>
-                </div>
-            )}
         </form>
     );
 };
