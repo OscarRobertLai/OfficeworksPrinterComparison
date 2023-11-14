@@ -5,31 +5,59 @@ import {useState} from "react";
 
 
 
-const PrinterSearch = () => {
+const PrinterSearch = ({ setChartData, setApiResponse }) => {
     const [printer1Sku, setPrinter1Sku] = useState("");
     const [printer2Sku, setPrinter2Sku] = useState("");
-    const [apiResponse, setApiResponse] = useState({ printer1: null, printer2: null });
+
+    // Function to log Compatibility values
+    const logCompatibilityValues = (data) => {
+
+        const compatibilitySpecs = data.specs.find(specGroup => specGroup.group === 'Performance');
+        console.log(compatibilitySpecs)
+        if (compatibilitySpecs) {
+            compatibilitySpecs.attributes.forEach(attribute => {
+                console.log("VALUE", attribute.value);
+                const estimatedSheets = attribute.value.split(' ')[0];
+                console.log("SAMPLE", parseInt(estimatedSheets));
+
+
+            });
+        } else {
+            console.log('No Compatibility specs found');
+        }
+    };
 
     const handleSearch = async (event) => {
         event.preventDefault(); // Prevent the form from submitting traditionally
 
         // Add these lines to print the values to the console
-        console.log("Printer 1 SKU:", printer1Sku);
-        console.log("Printer 2 SKU:", printer2Sku);
-
-
         Promise.all([
-            fetch('/catalogue-app/api/mobile-plan/product?productSku=BRMFCL3750')
+            fetch(`/catalogue-app/api/mobile-plan/product?productSku=BRLC3319P4`)
                 .then(response => response.ok ? response.json() : Promise.reject(`Error: ${response.status}`)),
-            fetch('/catalogue-app/api/mobile-plan/product?productSku=BRMFCL3750')
+            fetch(`/catalogue-app/api/mobile-plan/product?productSku=BRTN2450`)
                 .then(response => response.ok ? response.json() : Promise.reject(`Error: ${response.status}`))
         ]).then(([data1, data2]) => {
             setApiResponse({ printer1: data1, printer2: data2 });
-
-            // Add this line to log the response to console
-            console.log("API Response:", { printer1: data1, printer2: data2 });
+            //
+            // console.log("CATS", data1)
+            // Log Compatibility values for each printer
+            // logCompatibilityValues(data1);
+            logCompatibilityValues(data2);
         }).catch(error => {
             console.error('There was an error fetching printer data:', error);
+        });
+
+
+
+        setChartData({
+            labels: ['Data Point 1', 'Data Point 2'], // Example labels
+            datasets: [
+                {
+                    label: 'Dataset 1',
+                    data: [42, 16], // Use actual data points here
+                    // ...other dataset properties...
+                }
+            ]
         });
     };
 
@@ -60,9 +88,9 @@ const PrinterSearch = () => {
     );
 };
 
-const PrinterInfoTable = () => {
-    return (
+const PrinterInfoTable = ({ apiResponse }) => {
 
+    return (
         <table>
             <thead>
             <tr>
@@ -74,18 +102,42 @@ const PrinterInfoTable = () => {
             <tbody>
             <tr>
                 <td>Skew</td>
-                <td></td> {/* Empty cell for Printer 1's Skew */}
-                <td></td> {/* Empty cell for Printer 2's Skew */}
+                <td>{apiResponse.printer1 && apiResponse.printer1.sku ? apiResponse.printer1.sku : 'N/A'}</td> {/* Display SKU for Printer 1 */}
+                <td>{apiResponse.printer2 && apiResponse.printer2.sku ? apiResponse.printer2.sku : 'N/A'}</td> {/* Display SKU for Printer 1 */}
             </tr>
             <tr>
                 <td>Price</td>
-                <td></td> {/* Empty cell for Printer 1's Price */}
-                <td></td> {/* Empty cell for Printer 2's Price */}
+                <td>
+                    {
+                        apiResponse.printer1 && apiResponse.printer1.attributes
+                            ? (apiResponse.printer1.attributes.find(attr => attr.id === 'edlpPrice')?.value || 'N/A')
+                            : 'N/A'
+                    }
+                </td>
+                <td>
+                    {
+                        apiResponse.printer2 && apiResponse.printer2.attributes
+                            ? (apiResponse.printer2.attributes.find(attr => attr.id === 'edlpPrice')?.value || 'N/A')
+                            : 'N/A'
+                    }
+                </td> {/* Display EDLP Price for Printer 1 */}
             </tr>
             <tr>
                 <td>Brand</td>
-                <td></td> {/* Empty cell for Printer 1's Brand */}
-                <td></td> {/* Empty cell for Printer 2's Brand */}
+                <td>
+                {
+                    apiResponse.printer1 && apiResponse.printer1.attributes
+                        ? (apiResponse.printer1.attributes.find(attr => attr.id === 'brand')?.value || 'N/A')
+                        : 'N/A'
+                }
+                </td> {/* Display EDLP Price for Printer 1 */}
+                <td>
+                    {
+                        apiResponse.printer2 && apiResponse.printer2.attributes
+                            ? (apiResponse.printer2.attributes.find(attr => attr.id === 'brand')?.value || 'N/A')
+                            : 'N/A'
+                    }
+                </td> {/* Display EDLP Price for Printer 1 */}
             </tr>
             <tr>
                 <td>Highett Stock</td>
@@ -96,43 +148,36 @@ const PrinterInfoTable = () => {
         </table>
     );
 }
-
-const LineChart = () => {
-    const data = {
-        labels: ['January', 'February', 'March', 'April', 'May', 'June'],
-        datasets: [
-            {
-                label: 'Dataset 1',
-                data: [65, 59, 80, 81, 56, 55],
-                fill: false,
-                borderColor: 'rgb(75, 192, 192)',
-                tension: 0.1
-            }
-        ]
-    };
-
-    const options = {
-        // Add any Chart.js options you need here
-    };
-
-    return <Line data={data} options={options} />;
+const LineChart = ({ data }) => {
+    return <Line data={data} options={{/* ... */}} />;
 };
 
 export default function App() {
-    // const [filterText, setFilterText] = useState("")
+
+    const [apiResponse, setApiResponse] = useState({ printer1: null, printer2: null });
+    const [chartData, setChartData] = useState({
+        labels: [],
+        datasets: []
+    });
 
     return (
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <div style={{ width: '50%' }}>
-                <PrinterSearch />
+                {/* Pass setApiResponse and setChartData as props to PrinterSearch */}
+                <PrinterSearch setChartData={setChartData} setApiResponse={setApiResponse}/>
+                {/* Pass apiResponse as prop to PrinterInfoTable */}
                 <div style={{ marginTop: '20px' }}>
-                    <PrinterInfoTable />
+                    <PrinterInfoTable apiResponse={apiResponse} />
                 </div>
             </div>
             <div style={{ width: '50%' }}>
-                <LineChart />
+                <LineChart data={chartData} />
             </div>
         </div>
     );
 }
+
+
+
+
 
