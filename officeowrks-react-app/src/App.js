@@ -1,89 +1,117 @@
 import './App.css';
 import {Line} from 'react-chartjs-2';
 import 'chart.js/auto';
-import {useState} from "react";
-import {niceNum} from "chart.js/helpers";
+import {useEffect, useState} from "react";
+import { findIntersectionPoint, calculatePricePerPage } from './printerUtils';
 
-
-const PrinterSearch = ({ setChartData, setApiResponse, setStockInfo }) => {
+const PrinterSearch = ({ setChartData, setApiResponse, setStockInfo, stockInfo }) => {
     const [printer1Sku, setPrinter1Sku] = useState("");
     const [printer2Sku, setPrinter2Sku] = useState("");
+    const [printerPricing1, setPrinterPricing1] = useState("300");
+    const [printerPricing2, setPrinterPricing2] = useState("300");
     const [pricePerPage, setPricePerPage] = useState({ printer1: 0, printer2: 0 });
-    const [printerCost, setPrinterCost] = useState({ printer1: 0, printer2: 0 });
+    console.log("INITIALISED")
 
-    const findIntersectionPoint = (line1, line2) => {
-        if (line1.m === line2.m) {
-            if (line1.b === line2.b) {
-                return 'The lines are coincident (identical).';
-            }
-            return 'The lines are parallel and do not intersect.';
+    // useEffect hook
+    useEffect(() => {
+        if (stockInfo.printer1 !== 'N/A' && stockInfo.printer2 !== 'N/A' )
+        {
+            updateGraph()
         }
-
-        // Calculate x coordinate of the intersection point
-        const x = (line2.b - line1.b) / (line1.m - line2.m);
-
-        // Calculate y coordinate using one of the equations
-        const y = line1.m * x + line1.b;
-
-        return { x, y };
-    }
+    }, [stockInfo]);
 
     const updateGraph = () =>
     {
-        // const printer1Equation = { m: pricePerPage.printer1 b: }
+        let points = []
+        let dataSet1 = []
+        let dataSet2 = []
 
+        const printer1Equation = { m: pricePerPage.printer1, b: parseFloat(printerPricing1) };
+        const printer2Equation = { m: pricePerPage.printer2, b: parseFloat(printerPricing2) };
+        const intersectionResult = findIntersectionPoint(printer1Equation, printer2Equation);
+
+        if (intersectionResult != null || intersectionResult < 0)
+        {
+            const midPoint = intersectionResult.x;
+            let factor = 0.5;
+            for (let i = 0; i < 5; i++){
+                // X labels
+                let value = midPoint * factor;
+                let intPoint = parseInt(value)
+                points.push(intPoint);
+                factor += 0.25;
+
+                // Printer 1 Points
+                const point1Push = (intPoint * pricePerPage.printer1) + parseInt(printerPricing1)
+                dataSet1.push(point1Push);
+
+                 // Printer 2 Points
+                const point2Push = (intPoint * pricePerPage.printer2) + parseInt(printerPricing2)
+                dataSet2.push(point2Push);
+                console.log(point1Push, point2Push)
+            }
+            console.log(dataSet1, dataSet2)
+        }else{
+            console.log("LOGGED", intersectionResult)
+            let value = 150;
+            let factor = 0.5;
+            for (let i = 0; i < 5; i++){
+                // X labels
+                const point = value * factor
+                points.push(point);
+                factor += 0.25;
+                dataSet1.push(point * pricePerPage.printer1 + parseInt(printerPricing1))
+                dataSet2.push(point * pricePerPage.printer2 + parseInt(printerPricing2))
+            }
+        }
+        setChartData({
+            labels: points, // Example labels
+            datasets: [
+                {
+                    label: 'Dataset 1',
+                    data: dataSet1, // Use actual data points here
+                    // ...other dataset properties...
+                },
+                {
+                    label: 'Dataset 2',
+                    data: dataSet2, // Use actual data points here
+                }
+            ]
+        });
     }
 
-    const calculatePricePerPage = (data) => {
-        // console.log(data)
-        const sheetsData = data.specs.find(specGroup => specGroup.group === 'Performance');
-        const edlpPrice = parseInt(data.attributes.find(attr => attr.id === 'edlpPrice').value);
-        let estimatedSheets = 0;
-        sheetsData.attributes.forEach(attribute => { // Can be done better
-            estimatedSheets = parseInt(attribute.value.split(' ')[0]);
-        });
-        return edlpPrice / estimatedSheets;
-
-    };
-
     const handleSearch = async (event) => {
+
         event.preventDefault(); // Prevent the form from submitting traditionally
-        let pricePerPage1 = 0;
-        let pricePerPage2 = 0;
+
         // Add these lines to print the values to the console
         Promise.all([
+            fetch(`/catalogue-app/api/mobile-plan/product?productSku=BRLC33174P`)
+                .then(response => response.ok ? response.json() : Promise.reject(`Error: ${response.status}`)),
             fetch(`/catalogue-app/api/mobile-plan/product?productSku=BRLC3319P4`)
                 .then(response => response.ok ? response.json() : Promise.reject(`Error: ${response.status}`)),
-            fetch(`/catalogue-app/api/mobile-plan/product?productSku=BRTN2450`)
+            fetch(`https://api.officeworks.com.au/v2/availability/store/W308?partNumber=BRLC33174P`)
                 .then(response => response.ok ? response.json() : Promise.reject(`Error: ${response.status}`)),
             fetch(`https://api.officeworks.com.au/v2/availability/store/W308?partNumber=BRLC3319P4`)
-                .then(response => response.ok ? response.json() : Promise.reject(`Error: ${response.status}`)),
-            fetch(`https://api.officeworks.com.au/v2/availability/store/W308?partNumber=BRTN2450`)
                 .then(response => response.ok ? response.json() : Promise.reject(`Error: ${response.status}`))
-        ]).then(([data1, data2, stockData1, stockData2]) => {
+        ]).then(async ([data1, data2, stockData1, stockData2]) => {
+            console.log("LOGGING", data1)
             const stock1 = stockData1[0].options[0].qty;
             const stock2 = stockData2[0].options[0].qty;
-            const printer1Cost = data1
-            console.log(printer1Cost)
+            // let printerData1 = await calculatePricePerPage(data1)
+            // let printerData2 = await calculatePricePerPage(data2)
+            // console.log("DATA", printerData1)
             setPricePerPage({printer1: calculatePricePerPage(data1), printer2: calculatePricePerPage(data2)});
-            setApiResponse({ printer1: data1, printer2: data2 });
+            setApiResponse({printer1: data1, printer2: data2});
             setStockInfo({printer1: stock1, printer2: stock2});
-            // setPrinterCost({printer1: })
+
         }).catch(error => {
             console.error('There was an error fetching printer data:', error);
         });
 
-        setChartData({
-            labels: ['Data Point 1', 'Data Point 2'], // Example labels
-            datasets: [
-                {
-                    label: 'Dataset 1',
-                    data: [42, 16], // Use actual data points here
-                    // ...other dataset properties...
-                }
-            ]
-        });
+
     };
+
 
     return(
         <form onSubmit={handleSearch}>
@@ -91,7 +119,7 @@ const PrinterSearch = ({ setChartData, setApiResponse, setStockInfo }) => {
             <div style={{ marginBottom: '10px' }}>
                 <input
                     type="text"
-                    placeholder="Printer 1"
+                    placeholder="Ink 1 Skew"
                     value={printer1Sku}
                     onChange={(e) => setPrinter1Sku(e.target.value)}
                 />
@@ -99,9 +127,26 @@ const PrinterSearch = ({ setChartData, setApiResponse, setStockInfo }) => {
             <div style={{ marginBottom: '10px' }}>
                 <input
                     type="text"
-                    placeholder="Printer 2"
+                    placeholder="Ink 2 Skew"
                     value={printer2Sku}
                     onChange={(e) => setPrinter2Sku(e.target.value)}
+                />
+            </div>
+            <div style={{ marginBottom: '10px' }}>
+                <input
+                    type="text"
+                    placeholder="Printer Price 1"
+                    value={printerPricing1.printer1}
+                    onChange={(e) => setPrinterPricing1(e.target.value)}
+
+                />
+            </div>
+            <div style={{ marginBottom: '10px' }}>
+                <input
+                    type="text"
+                    placeholder="Printer Price 2"
+                    value={printerPricing2.printer2}
+                    onChange={(e) => setPrinterPricing2(e.target.value)}
                 />
             </div>
             <div>
@@ -113,8 +158,6 @@ const PrinterSearch = ({ setChartData, setApiResponse, setStockInfo }) => {
 
 const PrinterInfoTable = ({ apiResponse, stockInfo }) =>
 {
-
-
     const searchJSON = (response, searchItem) => {
         if (response != null) {
             const foundItem = response.attributes.find(obj => obj.id === searchItem);
@@ -175,7 +218,7 @@ export default function App() {
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <div style={{ width: '50%' }}>
                 {/* Pass setApiResponse and setChartData as props to PrinterSearch */}
-                <PrinterSearch setChartData={setChartData} setApiResponse={setApiResponse} setStockInfo={setStockInfo}/>
+                <PrinterSearch setChartData={setChartData} setApiResponse={setApiResponse} setStockInfo={setStockInfo} stockInfo={stockInfo}/>
                 {/* Pass apiResponse as prop to PrinterInfoTable */}
                 <div style={{ marginTop: '20px' }}>
                     <PrinterInfoTable apiResponse={apiResponse} stockInfo={stockInfo}/>
